@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ChatGPT Auto Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <circle cx="14" cy="14" r="14" fill="url(#grad)"/>
+          <path d="M8 14.5C8 11.46 10.46 9 13.5 9C15.5 9 17.24 10.07 18.2 11.67L19.5 11C18.27 8.97 16.04 7.6 13.5 7.6C9.69 7.6 6.6 10.69 6.6 14.5C6.6 18.31 9.69 21.4 13.5 21.4C16.67 21.4 19.35 19.34 20.27 16.5H18.8C17.94 18.56 15.88 20 13.5 20C10.46 20 8 17.54 8 14.5Z" fill="white"/>
+          <circle cx="18" cy="14" r="2.5" fill="white"/>
+          <defs>
+            <linearGradient id="grad" x1="0" y1="0" x2="28" y2="28">
+              <stop offset="0%" stop-color="#10a37f"/>
+              <stop offset="100%" stop-color="#1a7a5c"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <span class="logo-text">AutoLogin</span>
+      </div>
+      <div class="badge">v1.0</div>
+    </div>
+
+    <!-- MFA Auto Reset Toggle -->
+    <div class="mfa-toggle-row">
+      <div class="mfa-toggle-info">
+        <span class="mfa-toggle-icon">🔄</span>
+        <div class="mfa-toggle-texts">
+          <span class="mfa-toggle-text">Auto Reset MFA sau login</span>
+          <span class="mfa-toggle-desc">Tự động tắt/bật lại MFA để lấy TOTP secret mới</span>
+        </div>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="mfaToggle" />
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <!-- Passkey Redirect Toggle -->
+    <div class="mfa-toggle-row">
+      <div class="mfa-toggle-info">
+        <span class="mfa-toggle-icon">🔑</span>
+        <div class="mfa-toggle-texts">
+          <span class="mfa-toggle-text">Mở trang Passkey sau login</span>
+          <span class="mfa-toggle-desc">Tắt để đăng nhập xong và giữ nguyên tại ChatGPT</span>
+        </div>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="passkeyRedirectToggle" />
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <!-- Account Counter -->
+    <div class="stats-bar">
+      <div class="stat">
+        <span class="stat-num" id="totalCount">0</span>
+        <span class="stat-label">Tổng</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <span class="stat-num success" id="currentIndex">–</span>
+        <span class="stat-label">Đang dùng</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <span class="stat-num warning" id="remainCount">0</span>
+        <span class="stat-label">Còn lại</span>
+      </div>
+    </div>
+
+    <!-- Current Account Display -->
+    <div class="current-account" id="currentAccountBox" style="display:none">
+      <div class="account-label">Tài khoản đang chọn</div>
+      <div class="account-email" id="currentEmail"></div>
+      <div class="account-password" id="currentPassword"></div>
+      <div class="account-2fa" id="current2fa"></div>
+    </div>
+
+    <!-- TOTP Live Viewer -->
+    <div class="totp-card" id="totpCard" style="display:none">
+      <div class="totp-header">
+        <span class="totp-title">
+          <svg width="13" height="13" fill="currentColor" viewBox="0 0 16 16" style="vertical-align:-2px">
+            <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
+            <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+          </svg>
+          Google Authenticator
+        </span>
+        <span class="totp-refresh" id="totpRefreshBadge">🔄 <span id="totpSeconds">30</span>s</span>
+      </div>
+      <div class="totp-body">
+        <div class="totp-code" id="totpCode">– – – – – –</div>
+        <button class="totp-copy-btn" id="btnCopyOtp" title="Sao chép mã">
+          <svg width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+            <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+          </svg>
+          Copy
+        </button>
+      </div>
+      <div class="totp-progress-wrap">
+        <div class="totp-progress-bar" id="totpProgressBar"></div>
+      </div>
+    </div>
+
+    <!-- Account Actions -->
+    <div class="account-toolbar">
+      <div class="controls">
+        <button class="btn-secondary" id="btnSave">
+          <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M2 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9.5a1 1 0 0 0-1 1v7.293l2.646-2.647a.5.5 0 0 1 .708.708l-3.5 3.5a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L7.5 10.293V2a2 2 0 0 1 2-2H14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h2.5a.5.5 0 0 1 0 1H2z"/>
+          </svg>
+          Lưu
+        </button>
+        <button class="btn-primary" id="btnLogin">
+          <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M6 3.5a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 0-1 0v2A1.5 1.5 0 0 0 6.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-8A1.5 1.5 0 0 0 5 3.5v2a.5.5 0 0 0 1 0v-2z"/>
+            <path fill-rule="evenodd" d="M11.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 1 0-.708.708L10.293 7.5H1.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
+          </svg>
+          Đăng nhập
+        </button>
+        <button class="btn-stop" id="btnStop" style="display:none">
+          <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M5 3.5h6A1.5 1.5 0 0 1 12.5 5v6a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 11V5A1.5 1.5 0 0 1 5 3.5z"/>
+          </svg>
+          Dừng
+        </button>
+      </div>
+
+      <div class="nav-row">
+        <button class="btn-nav" id="btnPrev">
+          <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
+          </svg>
+          Trước
+        </button>
+        <div class="nav-indicator" id="navIndicator">–/–</div>
+        <button class="btn-nav" id="btnNext">
+          Tiếp
+          <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Input Area -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title">📋 Danh sách tài khoản</span>
+        <div class="section-actions">
+          <button class="btn-icon" id="btnPaste" title="Dán từ clipboard">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+              <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+            </svg>
+            Dán
+          </button>
+          <button class="btn-icon danger" id="btnClear" title="Xoá tất cả">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+              <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <textarea
+        id="accountList"
+        class="textarea"
+        placeholder="Nhập tài khoản theo định dạng:&#10;email@gmail.com|password|2fa_code&#10;email2@gmail.com|password2|&#10;&#10;(2FA để trống nếu không có)"
+        rows="7"
+      ></textarea>
+      <div class="format-hint">
+        Định dạng: <code>ACCOUNT | PASSWORD | 2FA</code> — mỗi dòng 1 tài khoản
+      </div>
+    </div>
+
+    <!-- Automation Flow Status -->
+    <div class="auto-flow" id="autoFlow" style="display:none">
+      <div class="flow-step" id="flowStep1">
+        <div class="flow-dot" id="dot1"></div>
+        <span>Email</span>
+      </div>
+      <div class="flow-line" id="line1"></div>
+      <div class="flow-step" id="flowStep2">
+        <div class="flow-dot" id="dot2"></div>
+        <span>Password</span>
+      </div>
+      <div class="flow-line" id="line2"></div>
+      <div class="flow-step" id="flowStep3">
+        <div class="flow-dot" id="dot3"></div>
+        <span>OTP</span>
+      </div>
+      <div class="flow-line" id="line3" style="display:none"></div>
+      <div class="flow-step" id="flowStep4" style="display:none">
+        <div class="flow-dot" id="dot4"></div>
+        <span>MFA</span>
+      </div>
+    </div>
+
+    <!-- Status -->
+    <div class="status-bar" id="statusBar"></div>
+
+    <!-- MFA Result -->
+    <div class="mfa-result-card" id="mfaResultCard" style="display:none">
+      <div class="mfa-result-header">
+        <span class="mfa-result-title">
+          <svg width="13" height="13" fill="currentColor" viewBox="0 0 16 16" style="vertical-align:-2px">
+            <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+          </svg>
+          TOTP Secret Mới
+        </span>
+        <button class="totp-copy-btn" id="btnCopySecret">
+          <svg width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+            <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+          </svg>
+          Copy
+        </button>
+      </div>
+      <div class="mfa-result-secret" id="mfaSecret"></div>
+      <div class="mfa-result-status" id="mfaResultStatus"></div>
+    </div>
+
+    <!-- Account List Preview -->
+    <div class="account-list-section" id="accountListSection" style="display:none">
+      <div class="section-header">
+        <span class="section-title">📌 Danh sách đã lưu</span>
+      </div>
+      <div class="account-items" id="accountItems"></div>
+    </div>
+  </div>
+
+  <script src="totp.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
